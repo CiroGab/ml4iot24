@@ -1,0 +1,6 @@
+tensorflow==2.13.0
+tensorflow-io
+tensorflow-model-optimization==0.7.5
+redis==5.0.0
+cherrypy==18.8.0
+paho-mqtt==1.6.1
