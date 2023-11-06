@@ -1,29 +1,25 @@
 ## EX 1.2 HW 1
 
 import tensorflow as tf
-import tensorflow_io as tfio
+import argparse
+import numpy as np
+import os
+import sounddevice as sd
+from time import time
+from scipy.io.wavfile import write
 
+SAMPLING_RATE = 16000
+CHANNELS = 1
+RESOLUTION = "int16"
+BLOCKSIZE = 0.5 * SAMPLING_RATE
 
-class AudioReader():
-    def __init__(self, resolution, sampling_rate):
-        self.resolution = resolution
-        self.sampling_rate = sampling_rate
-
-    def get_audio(self, filename):
-        audio_io_tensor = tfio.audio.AudioIOTensor(filename, self.resolution)        
-
-        audio_tensor = audio_io_tensor.to_tensor()
-        audio_tensor = tf.squeeze(audio_tensor)
-
-        audio_float32 = tf.cast(audio_tensor, tf.float32)
-        audio_normalized = audio_float32 / self.resolution.max
-
-        zero_padding = tf.zeros(self.sampling_rate - tf.shape(audio_normalized), dtype=tf.float32)
-        audio_padded = tf.concat([audio_normalized, zero_padding], axis=0)
-
-        return audio_padded
-
-
+def preprocess_audio(indata):
+    tf_indata = tf.convert_to_tensor(indata, dtype=tf.float32)
+    audio_tensor = tf.squeeze(tf_indata)
+    audio_normalized = audio_tensor / tf.int16.max 
+       
+    return audio_normalized
+        
 class Spectrogram():
     def __init__(self, sampling_rate, frame_length_in_s, frame_step_in_s):
         self.frame_length = int(frame_length_in_s * sampling_rate)
@@ -70,4 +66,70 @@ class MelSpectrogram():
 
         return log_mel_spectrogram
 
- 
+class VAD():
+    def __init__(
+        self,
+        sampling_rate,
+        frame_length_in_s,
+        num_mel_bins,
+        lower_frequency,
+        upper_frequency,
+        dbFSthres, 
+        duration_thres
+    ):
+        self.frame_length_in_s = frame_length_in_s
+        self.mel_spec_processor = MelSpectrogram(
+            sampling_rate, frame_length_in_s, frame_length_in_s, num_mel_bins, lower_frequency, upper_frequency
+        )
+        self.dbFSthres = dbFSthres
+        self.duration_thres = duration_thres
+
+    def is_silence(self, audio):
+        
+        audio = preprocess_audio(indata=audio)
+        log_mel_spec = self.mel_spec_processor.get_mel_spec(audio)
+        dbFS = 20 * log_mel_spec
+        energy = tf.math.reduce_mean(dbFS, axis=1)
+
+        non_silence = energy > self.dbFSthres
+        non_silence_frames = tf.math.reduce_sum(tf.cast(non_silence, tf.float32))
+        non_silence_duration = (non_silence_frames + 1) * self.frame_length_in_s
+
+        if non_silence_duration > self.duration_thres:
+            return 0
+        else:
+            return 1
+
+def callback(indata, frames, callback_time, status):
+    """This is called (from a separate thread) for each audio block."""
+    global store_audio, buffer
+    buffer = np.roll(buffer, -BLOCKSIZE)
+    buffer[:, BLOCKSIZE:] = indata
+    
+
+    
+    if store_audio is True:
+        timestamp = time()
+        write(f'{timestamp}.wav', SAMPLING_RATE, indata)
+        filesize_in_bytes = os.path.getsize(f'{timestamp}.wav')
+        filesize_in_kb = filesize_in_bytes / 1024
+        print(f'Size: {filesize_in_kb:.2f}KB')
+        
+
+            
+if __name__ == "__main__":
+    
+    audio_buffer = np.zeros(shape=(CHANNELS,SAMPLING_RATE))
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--device", type=int, default=0)
+    args = parser.parse_args()
+    store_audio = False
+    voice_activity_detector = VAD(sampling_rate=16000, frame_length_in_s=0.032, num_mel_bins=12, lower_frequency=0, upper_frequency=8000, dbFSthres=-35, duration_thres=0.1)
+    
+    
+    with sd.InputStream(device=args.device, channels=CHANNELS, dtype=RESOLUTION, samplerate=SAMPLING_RATE, blocksize=BLOCKSIZE, callback=callback):
+        while True:
+            key = input()
+            if key in ('q', 'Q'):
+                print('Stop recording.')
+                break
