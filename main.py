@@ -11,7 +11,8 @@ from scipy.io.wavfile import write
 SAMPLING_RATE = 16000
 CHANNELS = 1
 RESOLUTION = "int16"
-BLOCKSIZE = 0.5 * SAMPLING_RATE
+BLOCKSIZE = int(0.5 * SAMPLING_RATE)
+audio_buffer = np.zeros(shape=(SAMPLING_RATE,CHANNELS))
 
 def preprocess_audio(indata):
     tf_indata = tf.convert_to_tensor(indata, dtype=tf.float32)
@@ -102,13 +103,15 @@ class VAD():
 
 def callback(indata, frames, callback_time, status):
     """This is called (from a separate thread) for each audio block."""
-    global store_audio, buffer
-    buffer = np.roll(buffer, -BLOCKSIZE)
-    buffer[:, BLOCKSIZE:] = indata
+    global store_audio, audio_buffer
     
-
+    audio_buffer = np.roll(audio_buffer, -BLOCKSIZE)
+    audio_buffer[BLOCKSIZE:, :] = indata
     
-    if store_audio is True:
+    
+    store_audio = bool(voice_activity_detector.is_silence(audio_buffer))
+    
+    if store_audio is False:
         timestamp = time()
         write(f'{timestamp}.wav', SAMPLING_RATE, indata)
         filesize_in_bytes = os.path.getsize(f'{timestamp}.wav')
@@ -119,7 +122,7 @@ def callback(indata, frames, callback_time, status):
             
 if __name__ == "__main__":
     
-    audio_buffer = np.zeros(shape=(CHANNELS,SAMPLING_RATE))
+    
     parser = argparse.ArgumentParser()
     parser.add_argument("--device", type=int, default=0)
     args = parser.parse_args()
