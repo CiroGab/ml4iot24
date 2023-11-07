@@ -113,7 +113,7 @@ def callback(indata, frames, callback_time, status):
     
     if store_audio is False:
         timestamp = time()
-        write(f'{timestamp}.wav', SAMPLING_RATE, indata)
+        write(f'{timestamp}.wav', SAMPLING_RATE, audio_buffer)
         filesize_in_bytes = os.path.getsize(f'{timestamp}.wav')
         filesize_in_kb = filesize_in_bytes / 1024
         print(f'Size: {filesize_in_kb:.2f}KB')
