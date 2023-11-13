@@ -28,18 +28,18 @@ if __name__ == "__main__":
     mac_address = hex(uuid.getnode())
     
     try:
-        redis_client.ts().create(f'{mac_address}:battery', retention_msecs= 60*60*24*1000) #Retention of one day
+        redis_client.ts().create(f'{mac_address}:battery', retention_msecs=24*60*60*1000) #Retention of one day
     except redis.ResponseError:
         pass
 
     try:
-        redis_client.ts().create(f'{mac_address}:power', retention_msecs=60*60*24*1000) #Retention of one day
+        redis_client.ts().create(f'{mac_address}:power', retention_msecs=24*60*60*1000) #Retention of one day
     except redis.ResponseError:
         pass
 
     try:
-        redis_client.ts().create(f'{mac_address}:plugged_seconds_sum', retention_msecs= 30*60*60*24*1000) #Retention of one month
-        redis_client.ts().createrule(f'{mac_address}:power', f'{mac_address}:plugged_seconds_sum', 'sum', bucket_size_msec=1000*3600) #Computed every hour
+        redis_client.ts().create(f'{mac_address}:plugged_seconds_sum', retention_msecs= 30*24*60*60*1000) #Retention of one month
+        redis_client.ts().createrule(f'{mac_address}:power', f'{mac_address}:plugged_seconds_sum', 'sum', bucket_size_msec=60*60*1000) #Computed every hour
     except redis.ResponseError:
         pass
 
