@@ -2,7 +2,6 @@ import psutil
 import redis
 import time
 import uuid
-from datetime import datetime
 import argparse
 
 if __name__ == "__main__":
@@ -27,52 +26,49 @@ if __name__ == "__main__":
     print('Redis Connected:', is_connected)
 
     mac_address = hex(uuid.getnode())
-
+    
     try:
-        redis_client.ts().create(f'{mac_address}:battery') #every sec
+        redis_client.ts().create(f'{mac_address}:battery', retention_msecs= 60*60*24*1000) #Retention of one day
     except redis.ResponseError:
         pass
 
     try:
-        redis_client.ts().create(f'{mac_address}:power') #every sec
+        redis_client.ts().create(f'{mac_address}:power', retention_msecs=60*60*24*1000) #Retention of one day
     except redis.ResponseError:
         pass
 
     try:
-        redis_client.ts().create(f'{mac_address}:plugged_seconds') #every hour
+        redis_client.ts().create(f'{mac_address}:plugged_seconds_sum', retention_msecs= 30*60*60*24*1000) #Retention of one month
+        redis_client.ts().createrule(f'{mac_address}:power', f'{mac_address}:plugged_seconds_sum', 'sum', bucket_size_msec=1000*3600) #Computed every hour
     except redis.ResponseError:
         pass
 
 
-
-
-
-    plugged_seconds = 0
-
-    hours_spent = 0
-
+    print("--- Maximum number of clients (a client is defined by its mac-address) ---")
+    print("Memory for battery: 16 Bytes per record (8 timestamp, 8 value)")
+    print("Memory for power: 16 Bytes per record (8 timestamp, 8 value)")
+    print("Memory for plugged time: 16 Bytes per record (8 timestamp, 8 value)")
+    print("Max number of battery records per client: 60*60*24 = 86400 (Retention of one day, one record per second)")
+    print("Max number of power records per client: 60*60*24 = 86400 (Retention of one day, one record per second)")
+    print("Max number of plugged time records per client: 24*30 = 720 (Retention of one month, one record per hour)")
+    print("Max number of records: 173520")
+    print("Max number of bytes (without header): 2776320 Bytes (2.65 MB)")
+    print("Max number of bytes (without header) after compression: 277632 Bytes (0.26 MB)")
+    print("Max memory usage: 104857600 Bytes (100 MB)")
+    print("Max number of clients: 104857600 Bytes / 277632 Bytes = 377.6 Clients (377 Clients at full capacity)")
+    
     while True:
         timestamp = time.time()
         timestamp_ms = int(timestamp * 1000)
-        timestamp_plugges_seconds = timestamp_ms * 3600
         battery_level = psutil.sensors_battery().percent
         power_plugged = int(psutil.sensors_battery().power_plugged)
-        plugged_seconds = plugged_seconds + power_plugged
-        formatted_datetime = datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S.%f')
 
-        redis_client.ts().add(f'{mac_address}:battery', timestamp_ms, battery_level, retention_msecs= 60*60*24*1000)
-        redis_client.ts().add(f'{mac_address}:power', timestamp_ms, power_plugged, retention_msecs= 60*60*24*1000)
-        redis_client.ts().add(f'{mac_address}:plugged_seconds', timestamp_plugges_seconds, plugged_seconds, retention_msecs= 60*60*24*1000*30)
-    
-    
-    #if last timestamp - first timestamp >= 1 hours
-        latest_ts = redis_client.ts().info(f'{mac_address}:plugged_seconds')[3] 
-        first_ts = redis_client.ts().info(f'{mac_address}:plugged_seconds')[2] #first time the last ts will be the first
-        time_diff_in_sec = (latest_ts-first_ts).total_second()
-    
-        if((time_diff_in_sec//3600) + hours_spent >= 1):
-            plugged_seconds = 0
-            hours_spent = hours_spent + 1
-  
-    
+        redis_client.ts().add(f'{mac_address}:battery', timestamp_ms, battery_level) # Add the value in the timeseries every second
+
+        redis_client.ts().add(f'{mac_address}:power', timestamp_ms, power_plugged) # Add the value in the timeseries every second
+
         time.sleep(1)
+        
+    
+
+
