@@ -146,8 +146,8 @@ if __name__ == "__main__":
         num_mel_bins=12,
         lower_frequency=0,
         upper_frequency=8000,
-        dbFSthres=-35,
-        duration_thres=0.1,
+        dbFSthres=-40,
+        duration_thres=0.05,
     )
 
     with sd.InputStream(
