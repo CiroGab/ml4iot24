@@ -1,5 +1,3 @@
-## EX 1.2 HW 1
-
 import tensorflow as tf
 import argparse
 import numpy as np
