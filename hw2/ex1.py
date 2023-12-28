@@ -17,12 +17,16 @@ RESOLUTION = "int16"
 BLOCKSIZE = int(0.5 * SAMPLING_RATE)
 audio_buffer = np.zeros(shape=(SAMPLING_RATE, CHANNELS))
 
-def monitor(prev_time, prev_state, state):
+def monitor(prev_state, state):
+    global prev_time
+    
     delta = np.inf
-    if prev_state:
+    if prev_state==1:
         delta = time.time() - prev_time
-    if state and delta >= 1:
+        
+    if state==1 and delta >= 1:
         timestamp = time.time()
+        prev_time = timestamp
         timestamp_ms = int(timestamp * 1000)
         battery_level = psutil.sensors_battery().percent
         power_plugged = int(psutil.sensors_battery().power_plugged)
@@ -179,7 +183,8 @@ def callback(indata: npt.ArrayLike, frames, callback_time, status):
         # audio not silent, so we store it.
         audio = preprocess_audio(audio_buffer)
         new_state = classification(interpreter=interpreter, input_details=input_details, output_details=output_details, current_state=state, processor=mfcc_processor, audio=audio)
-        monitor(callback_time, state, new_state)
+        monitor(state, new_state)
+        
         if(new_state == 1):
             print('...Monitoring')
         else:
@@ -259,6 +264,7 @@ if __name__ == "__main__":
 
         
     state = 0
+    prev_time = time.time()
     
     is_audio_buffer_silent = True
     # Instance of VAD with the parameters found in exercise 1.1
