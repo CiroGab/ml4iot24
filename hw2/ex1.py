@@ -204,7 +204,7 @@ PREPROCESSING_ARGS_MFCC = {
 
 mfcc_processor = MFCC(**PREPROCESSING_ARGS_MFCC)
     
-interpreter = tf.lite.Interpreter(model_path='tflite_models/prunedModelTry.tflite')
+interpreter = tf.lite.Interpreter(model_path='tflite_models/model12.tflite')
 interpreter.allocate_tensors()
 
 input_details = interpreter.get_input_details()
