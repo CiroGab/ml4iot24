@@ -17,8 +17,11 @@ RESOLUTION = "int16"
 BLOCKSIZE = int(0.5 * SAMPLING_RATE)
 audio_buffer = np.zeros(shape=(SAMPLING_RATE, CHANNELS))
 
-def monitor(state):
-    if state:
+def monitor(prev_time, prev_state, state):
+    delta = np.inf
+    if prev_state:
+        delta = time.time() - prev_time
+    if state and delta >= 1:
         timestamp = time.time()
         timestamp_ms = int(timestamp * 1000)
         battery_level = psutil.sensors_battery().percent
@@ -28,7 +31,6 @@ def monitor(state):
 
         redis_client.ts().add(f'{mac_address}:power', timestamp_ms, power_plugged) # Add the value in the timeseries every second
         
-        time.sleep(0.5)
 
 
 
@@ -176,9 +178,9 @@ def callback(indata: npt.ArrayLike, frames, callback_time, status):
     if not is_audio_buffer_silent:
         # audio not silent, so we store it.
         audio = preprocess_audio(audio_buffer)
-        state = classification(interpreter=interpreter, input_details=input_details, output_details=output_details, current_state=state, processor=mfcc_processor, audio=audio)
-        monitor(state)
-        if(state == 1):
+        new_state = classification(interpreter=interpreter, input_details=input_details, output_details=output_details, current_state=state, processor=mfcc_processor, audio=audio)
+        monitor(callback_time, state, new_state)
+        if(new_state == 1):
             print('...Monitoring')
         else:
             print('...Not Monitoring')
