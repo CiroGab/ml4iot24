@@ -180,7 +180,7 @@ def callback(indata: npt.ArrayLike, frames, callback_time, status):
     is_audio_buffer_silent = voice_activity_detector.is_silence(audio_buffer)
 
     if not is_audio_buffer_silent:
-        # audio not silent, so we store it.
+        # audio not silent, so we call the function to monitor the battery.
         audio = preprocess_audio(audio_buffer)
         new_state = classification(interpreter=interpreter, input_details=input_details, output_details=output_details, current_state=state, processor=mfcc_processor, audio=audio)
         monitor(state, new_state)
@@ -197,8 +197,8 @@ PREPROCESSING_ARGS_MFCC = {
     'frame_length_in_s': 0.032,
     'frame_step_in_s': 0.016,
     'num_mel_bins': 64,
-    'lower_frequency': 0,
-    'upper_frequency': 8000,
+    'lower_frequency': 20,
+    'upper_frequency': 4000,
     'num_coefficients': 64
 }
 
@@ -267,7 +267,7 @@ if __name__ == "__main__":
     prev_time = time.time()
     
     is_audio_buffer_silent = True
-    # Instance of VAD with the parameters found in exercise 1.1
+    # Instance of VAD with the parameters found in exercise 1.1 of homework 1
     voice_activity_detector = VAD(
         sampling_rate=16000,
         frame_length_in_s=0.032,
